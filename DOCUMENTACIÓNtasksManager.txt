@@ -1,0 +1,225 @@
+------------------------------------
+|DOCUMENTACIÓN TASKSMANAGER SYMFONY|
+------------------------------------
+
+
+---------------------------------------------
+|Autor: Rafael Rodríguez Calvente           |
+|Correo: rafaelrodriguezcalvente@gmail.com  |
+|Web: rafacalventeweb.com                   |
+---------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-------------
+|CREACIÓN BD|
+-------------
+
+    1º: Ejecutamos el database.sql para generar la BD y sus respectivas tablas en phpmyadmin
+    2º: Ejcutamos php bin/console doctrine:mapping:convert --from-database yml .src/Entity (genera 
+    el Users.orm.yml y el Tasks.orm.yml)
+    3º: Ejecutamos php bin/console doctrine:mapping:import App\\Entity annotation --path=src/Entity (genera el Users.php y el Tasks.php, es decir la clase en sí)
+    4º: Ejcutamos php bin/console make:entity --regenerate App (genera los getters y setters del modelo)
+    5º: Cambiamos el nombre de Users.php a User.php porque cada objeto de esa clase representará un solo user 
+    (hacemos igual con el nombre de la clase y el nombre dentro de los comentarios inciales). Mismo procedimiento con Tasks.php.
+    6º: Cambiamos dentro de Task.php (esto se haría en todas las tablas que tengan claves foráneas): 
+
+    private $createdAt = 'NULL';
+
+        /**
+        * @var \User (teníamos Users)
+        *
+        * @ORM\ManyToOne(targetEntity="User") (teniamos Users)
+        * @ORM\JoinColumns({
+        *   @ORM\JoinColumn(name="user_id", referencedColumnName="id")
+        * })
+        */
+        private $user;
+
+    * Dentro del Users.orm.yml cambiamos la primera línea tb por User
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---------------------
+|CIFRADO CONTRASEÑAS|
+---------------------
+
+    Para cifrar la password usamos los encoders de symfony, es decir, 
+    modificamos el config/package/security:
+
+    security:
+        encoders:
+            App\Entity\User:
+                algorithm: bcrypt
+                cost: 4
+
+
+    Añadimos en UserController.php:
+
+        use Symfony\Component\Security\Core\Encoder\UserPasswordEncoderInterface;
+        public function register(Request $request, UserPasswordEncoderInterface $enconder)
+            {
+
+            }
+
+
+    Añadimos a nuestro modelo User.php:
+
+        use Symfony\Component\Security\Core\User\UserInterface;
+
+        class User implements UserInterface
+        {
+
+            // Al final de la clase añadimos:
+
+            public function getUsername(){
+                return $this->email;
+            }
+
+            public function getSalt(){
+                return null;
+            }
+
+            public function getRoles(){
+                return $this->getRole();
+            }
+
+            public function eraseCredentials(){
+                
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-------------------------
+|MAQUETACIÓN FORMULARIOS|
+-------------------------
+
+En base.html.twig tenemos que cargar los estilos.
+En public creamos una carpeta assets/css/style.css
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-------
+|LOGIN|
+-------
+
+    1º: Vamos a config/package/security.yaml y lo dejamos así:
+
+    providers:
+        users_in_memory: { memory: null }
+        proveedor:
+            entity:
+                class: App\Entity\User
+                property: email
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+        main:
+            anonymous: true
+            form_login:
+                login_path: login
+                check_path: login
+                provider: proveedor
+            logout:
+                path: /logout
+                target: /login
+            lazy: true
+            provider: users_in_memory
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---------------------
+|CONTROLES DE ACCESO|
+---------------------
+
+    En el security.yaml al final del todo descomentando la dos últimas líneas pordemos indicar las rutas
+    a las que tendrán acceso los distintos roles de usuario. Ver más en dicho fichero.
+
+    También hay que indicar que si se intenta acceder a una url permitida solo para usuarios, se redirija 
+    a / que corresponde con la pagina de login. Esto se indica en target: /
+
+    main:
+                anonymous: true
+                form_login:
+                    login_path: login
+                    check_path: login
+                    provider: proveedor
+                logout:
+                    path: /logout
+                    target: /
